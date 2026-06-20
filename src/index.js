@@ -161,6 +161,39 @@ client.on('interactionCreate', async interaction => {
 
     return;
   }
+
+  if (interaction.customId === 'everyone_modal') {
+
+    const bericht =
+      interaction.fields.getTextInputValue(
+        'everyone_bericht'
+      );
+
+    const embed = new EmbedBuilder()
+      .setColor('#9df505')
+      .setTitle('📣 @everyone Aankondiging')
+      .setDescription(bericht)
+      .setFooter({
+        text: 'TrexBot',
+        iconURL: client.user.displayAvatarURL()
+      })
+      .setTimestamp();
+
+    await interaction.reply({
+      content: '✅ @everyone aankondiging geplaatst.',
+      flags: MessageFlags.Ephemeral
+    });
+
+    await interaction.channel.send({
+      content: '@everyone',
+      allowedMentions: {
+        parse: ['everyone']
+      },
+      embeds: [embed]
+    });
+
+    return;
+  }
 }
   if (!interaction.isChatInputCommand()) return;
 
