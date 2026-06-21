@@ -13,7 +13,12 @@ module.exports = {
   async execute(interaction) {
     const stats = getStats();
 
-    const uptimeSeconds = Math.floor(process.uptime());
+    // Prefer Discord client uptime (ms) when available, otherwise fall back to process uptime (s).
+    const uptimeMs = typeof interaction.client.uptime === 'number' && interaction.client.uptime
+      ? interaction.client.uptime
+      : Math.floor(process.uptime() * 1000);
+
+    const uptimeSeconds = Math.floor(uptimeMs / 1000);
     const days = Math.floor(uptimeSeconds / 86400);
     const hours = Math.floor((uptimeSeconds % 86400) / 3600);
     const minutes = Math.floor((uptimeSeconds % 3600) / 60);
