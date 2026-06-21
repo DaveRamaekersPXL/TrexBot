@@ -36,7 +36,7 @@ client.on('guildMemberAdd', async member => {
   if (!channel) return;
 
   const embed = new EmbedBuilder()
-    .setColor('#57F287')
+    .setColor('#9df505')
     .setTitle('👋 Welkom!')
     .setDescription(
       `Welkom ${member} op de server van DeyTrex!\n\n` +
@@ -52,6 +52,8 @@ client.on('guildMemberAdd', async member => {
   await channel.send({
     embeds: [embed]
   });
+  await message.react('🦖');
+  await message.react('👋');
 
 });
 
@@ -171,7 +173,7 @@ client.on('interactionCreate', async interaction => {
 
     const embed = new EmbedBuilder()
       .setColor('#9df505')
-      .setTitle('📣 @everyone Aankondiging')
+      .setTitle('📣')
       .setDescription(bericht)
       .setFooter({
         text: 'TrexBot',
