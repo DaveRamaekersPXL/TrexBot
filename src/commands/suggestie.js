@@ -3,7 +3,8 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  ActionRowBuilder
+  ActionRowBuilder,
+  PermissionFlagsBits
 } = require('discord.js');
 
 module.exports = {
