@@ -1,6 +1,7 @@
 const {
   SlashCommandBuilder,
-  PermissionFlagsBits
+  PermissionFlagsBits,
+  MessageFlags
 } = require('discord.js');
 
 const fs = require('fs');
@@ -61,7 +62,7 @@ module.exports = {
     await interaction.reply({
       content:
         `✅ Changelog v${version} toegevoegd.`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   }
 };

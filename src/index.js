@@ -137,7 +137,7 @@ client.on('interactionCreate', async interaction => {
 
   await interaction.reply({
     content: '✅ Je suggestie is doorgestuurd!',
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   });
 
   const message = await channel.send({
@@ -179,7 +179,7 @@ client.on('interactionCreate', async interaction => {
 
   await interaction.reply({
     content: '✅ Poll geplaatst.',
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   });
 
   const message = await interaction.channel.send({
