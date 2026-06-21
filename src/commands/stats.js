@@ -13,15 +13,25 @@ module.exports = {
   async execute(interaction) {
     const stats = getStats();
 
-    // Prefer Discord client uptime (ms) when available, otherwise fall back to process uptime (s).
-    const uptimeMs = typeof interaction.client.uptime === 'number' && interaction.client.uptime
+    // Show both client uptime (since Discord connection) and process uptime (since Node process start)
+    const clientUptimeMs = typeof interaction.client.uptime === 'number' && interaction.client.uptime
       ? interaction.client.uptime
-      : Math.floor(process.uptime() * 1000);
+      : 0;
 
-    const uptimeSeconds = Math.floor(uptimeMs / 1000);
-    const days = Math.floor(uptimeSeconds / 86400);
-    const hours = Math.floor((uptimeSeconds % 86400) / 3600);
-    const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+    const processUptimeMs = Math.floor(process.uptime() * 1000);
+
+    function formatUptime(ms) {
+      const totalSeconds = Math.floor(ms / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      if (days > 0) return `${days}d ${hours}u ${minutes}m`;
+      if (hours > 0) return `${hours}u ${minutes}m ${seconds}s`;
+      if (minutes > 0) return `${minutes}m ${seconds}s`;
+      return `${seconds}s`;
+    }
 
     const embed = new EmbedBuilder()
       .setColor('#9df505')
@@ -30,7 +40,8 @@ module.exports = {
       .addFields(
         { name: '👥 Leden', value: `${interaction.guild.memberCount}`, inline: true },
         { name: '📡 Ping', value: `${interaction.client.ws.ping}ms`, inline: true },
-        { name: '⏱️ Uptime', value: `${days}d ${hours}u ${minutes}m`, inline: true },
+        { name: '⏱️ Connected', value: `${clientUptimeMs ? formatUptime(clientUptimeMs) : '—'}`, inline: true },
+        { name: '🖥️ Process', value: `${formatUptime(processUptimeMs)}`, inline: true },
 
         { name: '🔴 Streams', value: `${stats.streamsDetected || 0}`, inline: true },
         { name: '📹 Uploads', value: `${stats.uploadsDetected || 0}`, inline: true },
