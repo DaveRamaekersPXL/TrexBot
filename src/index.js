@@ -103,6 +103,53 @@ client.on('interactionCreate', async interaction => {
     });
   }
   if (interaction.isModalSubmit()) {
+  
+  if (interaction.customId === 'suggestie_modal') {
+  const titel = interaction.fields.getTextInputValue('suggestie_titel');
+  const bericht = interaction.fields.getTextInputValue('suggestie_bericht');
+
+  const channel = await interaction.guild.channels.fetch(
+    process.env.ANNOUNCEMENTS_CHANNEL_ID
+  );
+
+  const embed = new EmbedBuilder()
+    .setColor('#9df505')
+    .setTitle('💡 Nieuwe Suggestie')
+    .addFields(
+      {
+        name: 'Titel',
+        value: titel
+      },
+      {
+        name: 'Beschrijving',
+        value: bericht
+      },
+      {
+        name: 'Ingestuurd door',
+        value: `${interaction.user}`
+      }
+    )
+    .setFooter({
+      text: 'TrexBot',
+      iconURL: client.user.displayAvatarURL()
+    })
+    .setTimestamp();
+
+  await interaction.reply({
+    content: '✅ Je suggestie is doorgestuurd!',
+    ephemeral: true
+  });
+
+  const message = await channel.send({
+    embeds: [embed]
+  });
+
+  await message.react('👍');
+  await message.react('👎');
+
+  return;
+  }  
+
 
   if (interaction.customId === 'poll_modal') {
   const vraag = interaction.fields.getTextInputValue('poll_vraag');
