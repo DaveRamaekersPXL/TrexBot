@@ -49,11 +49,16 @@ client.on('guildMemberAdd', async member => {
     })
     .setTimestamp();
 
-  await channel.send({
+  const welcomeMessage = await channel.send({
     embeds: [embed]
   });
-  await message.react('🦖');
-  await message.react('👋');
+
+  try {
+    await welcomeMessage.react('🦖');
+    await welcomeMessage.react('👋');
+  } catch (error) {
+    console.error('Could not add reactions to welcome message:', error.message);
+  }
 
 });
 
