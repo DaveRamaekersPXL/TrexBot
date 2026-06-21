@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { XMLParser } = require('fast-xml-parser');
 const { EmbedBuilder } = require('discord.js');
+const { incrementStat } = require('../utils/stats');
 
 const fs = require('fs');
 const path = require('path');
@@ -104,6 +105,7 @@ async function checkTwitchLive(client) {
       content: `<@&${process.env.STREAM_ROLE_ID}>`,
       embeds: [embed]
     });
+    incrementStat('streamsDetected');
     alertData.lastTwitchStreamId = stream.id;
     saveData(alertData);
 
@@ -174,6 +176,7 @@ async function checkYouTubeUpload(client) {
       content: `<@&${process.env.UPLOAD_ROLE_ID}>`,
       embeds: [embed]
     });
+    incrementStat('uploadsDetected');
 
     alertData.lastYouTubeVideoId = videoId;
     saveData(alertData);
