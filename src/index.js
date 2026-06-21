@@ -104,6 +104,48 @@ client.on('interactionCreate', async interaction => {
   }
   if (interaction.isModalSubmit()) {
 
+  if (interaction.customId === 'poll_modal') {
+  const vraag = interaction.fields.getTextInputValue('poll_vraag');
+  const optiesRaw = interaction.fields.getTextInputValue('poll_opties');
+
+  const opties = optiesRaw
+    .split(',')
+    .map(optie => optie.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+
+  const emojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+
+  const beschrijving = opties
+    .map((optie, index) => `${emojis[index]} ${optie}`)
+    .join('\n');
+
+  const embed = new EmbedBuilder()
+    .setColor('#9df505')
+    .setTitle('📊 Poll')
+    .setDescription(`**${vraag}**\n\n${beschrijving}`)
+    .setFooter({
+      text: 'TrexBot',
+      iconURL: client.user.displayAvatarURL()
+    })
+    .setTimestamp();
+
+  await interaction.reply({
+    content: '✅ Poll geplaatst.',
+    ephemeral: true
+  });
+
+  const message = await interaction.channel.send({
+    embeds: [embed]
+  });
+
+  for (let i = 0; i < opties.length; i++) {
+    await message.react(emojis[i]);
+  }
+
+  return;
+  }
+
   if (interaction.customId === 'planning_modal') {
 
     const bericht =
