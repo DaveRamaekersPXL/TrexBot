@@ -40,8 +40,7 @@ module.exports = {
       .addFields(
         { name: '👥 Leden', value: `${interaction.guild.memberCount}`, inline: true },
         { name: '📡 Ping', value: `${interaction.client.ws.ping}ms`, inline: true },
-        { name: '⏱️ Connected', value: `${clientUptimeMs ? formatUptime(clientUptimeMs) : '—'}`, inline: true },
-        { name: '🖥️ Process', value: `${formatUptime(processUptimeMs)}`, inline: true },
+        { name: '⏱️ Connected', value: `${clientUptimeMs ? formatUptime(clientUptimeMs) : formatUptime(processUptimeMs)}`, inline: true },
 
         { name: '🔴 Streams', value: `${stats.streamsDetected || 0}`, inline: true },
         { name: '📹 Uploads', value: `${stats.uploadsDetected || 0}`, inline: true },
