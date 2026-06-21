@@ -12,7 +12,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('poll')
     .setDescription('Maak een poll')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
     const modal = new ModalBuilder()
