@@ -36,6 +36,8 @@ let alertData = loadData();
 
 
 let twitchAccessToken = null;
+let isCheckingTwitchLive = false;
+let isCheckingYouTubeUpload = false;
 
 async function getTwitchToken() {
   const res = await axios.post(
@@ -46,6 +48,12 @@ async function getTwitchToken() {
 }
 
 async function checkTwitchLive(client) {
+  if (isCheckingTwitchLive) {
+    return;
+  }
+
+  isCheckingTwitchLive = true;
+
   try {
     if (!twitchAccessToken) {
       await getTwitchToken();
@@ -112,11 +120,21 @@ async function checkTwitchLive(client) {
   } catch (error) {
     console.error('Twitch alert error:', error.response?.data || error.message);
     twitchAccessToken = null;
+  } finally {
+    isCheckingTwitchLive = false;
   }
 }
 
 async function checkYouTubeUpload(client) {
+  if (isCheckingYouTubeUpload) {
+    return;
+  }
+
+  isCheckingYouTubeUpload = true;
+
   try {
+    alertData = loadData();
+
     const feedUrl =
       `https://www.youtube.com/feeds/videos.xml?channel_id=${process.env.YOUTUBE_CHANNEL_ID}`;
 
@@ -134,7 +152,7 @@ async function checkYouTubeUpload(client) {
     console.log('Laatste YouTube video ID:', videoId);
     const title = latest.title;
    
-    if (/\blive\b/i.test(title)) {
+    if (title.includes('LIVE')) {
         console.log('Live/VOD overgeslagen:', title);
         alertData.lastYouTubeVideoId = videoId;
         saveData(alertData);
@@ -183,6 +201,8 @@ async function checkYouTubeUpload(client) {
 
   } catch (error) {
     console.error('YouTube upload error:', error.response?.data || error.message);
+  } finally {
+    isCheckingYouTubeUpload = false;
   }
 }
 
