@@ -138,7 +138,13 @@ async function checkYouTubeUpload(client) {
     const feedUrl =
       `https://www.youtube.com/feeds/videos.xml?channel_id=${process.env.YOUTUBE_CHANNEL_ID}`;
 
-    const res = await axios.get(feedUrl);
+    const res = await axios.get(feedUrl, {
+  headers: {
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'User-Agent': 'TrexBot/1.0'
+  }
+});
     console.log('YouTube Channel ID:', process.env.YOUTUBE_CHANNEL_ID);
 
     const parser = new XMLParser();
