@@ -3,6 +3,22 @@ const path = require('path');
 require('dotenv').config({
   path: path.join(__dirname, '..', '.env')
 });
+
+const originalConsoleLog = console.log.bind(console);
+const originalConsoleInfo = console.info.bind(console);
+const originalConsoleWarn = console.warn.bind(console);
+const originalConsoleError = console.error.bind(console);
+
+function formatConsoleArgs(level, args) {
+  const timestamp = new Date().toISOString();
+  return [`[${timestamp}] [pid:${process.pid}] [${level}]`, ...args];
+}
+
+console.log = (...args) => originalConsoleLog(...formatConsoleArgs('log', args));
+console.info = (...args) => originalConsoleInfo(...formatConsoleArgs('info', args));
+console.warn = (...args) => originalConsoleWarn(...formatConsoleArgs('warn', args));
+console.error = (...args) => originalConsoleError(...formatConsoleArgs('error', args));
+
 const { startAlerts } = require('./events/alerts');
 const { startBirthdays } = require('./events/birthdays');
 const { Client, Collection, GatewayIntentBits, EmbedBuilder, MessageFlags } = require('discord.js');

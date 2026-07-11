@@ -12,6 +12,7 @@ function loadData() {
   if (!fs.existsSync(dataPath)) {
     return {
       lastYouTubeVideoId: '',
+      lastYouTubeTitle: '',
       lastTwitchStreamId: ''
     };
   }
@@ -22,6 +23,7 @@ function loadData() {
     console.error('Alerts data kon niet worden geladen, start met lege state:', error.message);
     return {
       lastYouTubeVideoId: '',
+      lastYouTubeTitle: '',
       lastTwitchStreamId: ''
     };
   }
@@ -45,6 +47,36 @@ async function getTwitchToken() {
   );
 
   twitchAccessToken = res.data.access_token;
+}
+
+async function fetchYouTubeFeed(feedUrl, attempt = 1) {
+  try {
+    return await axios.get(feedUrl, {
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'User-Agent': 'TrexBot/1.0'
+      },
+      timeout: 15000
+    });
+  } catch (error) {
+    const status = error.response?.status;
+    const shouldRetry = attempt < 2 && status >= 500 && status < 600;
+
+    console.error('YouTube feed request mislukt:', {
+      feedUrl,
+      attempt,
+      status,
+      message: error.message
+    });
+
+    if (shouldRetry) {
+      console.log('YouTube feed retry voor tijdelijke serverfout...');
+      return fetchYouTubeFeed(feedUrl, attempt + 1);
+    }
+
+    throw error;
+  }
 }
 
 async function checkTwitchLive(client) {
@@ -127,6 +159,7 @@ async function checkTwitchLive(client) {
 
 async function checkYouTubeUpload(client) {
   if (isCheckingYouTubeUpload) {
+    console.log('YouTube upload check overgeslagen: vorige check loopt nog.');
     return;
   }
 
@@ -138,13 +171,12 @@ async function checkYouTubeUpload(client) {
     const feedUrl =
       `https://www.youtube.com/feeds/videos.xml?channel_id=${process.env.YOUTUBE_CHANNEL_ID}`;
 
-    const res = await axios.get(feedUrl, {
-  headers: {
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache',
-    'User-Agent': 'TrexBot/1.0'
-  }
-});
+    console.log('YouTube upload check gestart:', {
+      feedUrl,
+      lastSavedVideoId: alertData.lastYouTubeVideoId || '(geen)'
+    });
+
+    const res = await fetchYouTubeFeed(feedUrl);
     console.log('YouTube Channel ID:', process.env.YOUTUBE_CHANNEL_ID);
 
     const parser = new XMLParser();
@@ -157,30 +189,44 @@ async function checkYouTubeUpload(client) {
     const videoId = latest['yt:videoId'];
     console.log('Laatste YouTube video ID:', videoId);
     const title = latest.title;
+    const normalizedTitle = String(title || '').trim();
+    console.log('Laatste YouTube titel:', normalizedTitle);
    
     if (title.includes('LIVE')) {
-        console.log('Live/VOD overgeslagen:', title);
-        alertData.lastYouTubeVideoId = videoId;
-        saveData(alertData);
+      console.log('Live/VOD overgeslagen:', title);
+      alertData.lastYouTubeVideoId = videoId;
+      saveData(alertData);
         return;
 
     }
     const description = latest["media:group"]?.["media:description"] || "";
     if (description.toLowerCase().includes('#nederlands')) {
-        console.log('Short overgeslagen:', title);
-        alertData.lastYouTubeVideoId = videoId;
-        saveData(alertData);
+      console.log('Short overgeslagen zonder state-update:', title, `(${videoId})`);
         return;
     }
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
+    if (normalizedTitle && normalizedTitle === String(alertData.lastYouTubeTitle || '').trim()) {
+      console.log('YouTube titel al verwerkt, melding overgeslagen:', normalizedTitle);
+      return;
+    }
+
     if (!alertData.lastYouTubeVideoId) {
        alertData.lastYouTubeVideoId = videoId;
+       alertData.lastYouTubeTitle = normalizedTitle;
        saveData(alertData);
        return;
     }
 
-    if (videoId === alertData.lastYouTubeVideoId) return;
+    if (videoId === alertData.lastYouTubeVideoId) {
+      console.log('YouTube video al verwerkt, melding overgeslagen:', videoId);
+      return;
+    }
+
+    alertData.lastYouTubeVideoId = videoId;
+  alertData.lastYouTubeTitle = normalizedTitle;
+    saveData(alertData);
+    console.log('Nieuwe YouTube upload opgeslagen en wordt verstuurd:', videoId);
 
     const channel = await client.channels.fetch(process.env.YOUTUBE_UPLOAD_CHANNEL_ID);
 
@@ -201,12 +247,14 @@ async function checkYouTubeUpload(client) {
       embeds: [embed]
     });
     incrementStat('uploadsDetected');
-
-    alertData.lastYouTubeVideoId = videoId;
-    saveData(alertData);
+    console.log('YouTube uploadmelding succesvol verstuurd:', videoId);
 
   } catch (error) {
-    console.error('YouTube upload error:', error.response?.data || error.message);
+    console.error('YouTube upload error:', {
+      status: error.response?.status,
+      message: error.message,
+      feedUrl: `https://www.youtube.com/feeds/videos.xml?channel_id=${process.env.YOUTUBE_CHANNEL_ID}`
+    });
   } finally {
     isCheckingYouTubeUpload = false;
   }
