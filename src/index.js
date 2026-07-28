@@ -55,7 +55,7 @@ client.on('guildMemberAdd', async member => {
     .setColor('#9df505')
     .setTitle('👋 Welkom!')
     .setDescription(
-      `Welkom ${member} op de server van DeyTrex!\n\n` +
+      `Welkom ${member} op de server van Deytrex!\n\n` +
       `Lees zeker even de regels in <#${process.env.REGELS_CHANNEL_ID}> en kies welke rollen je wilt ontvangen in <#${process.env.ROLLEN_CHANNEL_ID}>.`
     )
     .setThumbnail(member.user.displayAvatarURL())
