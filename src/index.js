@@ -124,6 +124,79 @@ client.on('interactionCreate', async interaction => {
     });
   }
   if (interaction.isModalSubmit()) {
+
+  if (interaction.customId === 'changelog_edit_modal') {
+    try {
+      const rawText = interaction.fields.getTextInputValue('changelog_text');
+      const lines = rawText
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      if (lines.length === 0) {
+        return interaction.reply({
+          content: '❌ De changelog is leeg. Voeg minimaal één versie toe.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const parsed = [];
+      let currentVersion = null;
+      let currentChanges = [];
+
+      const flushCurrent = () => {
+        if (!currentVersion) return;
+        parsed.push({
+          version: currentVersion,
+          changes: currentChanges
+        });
+      };
+
+      for (const line of lines) {
+        const versionMatch = line.match(/^v?\d+\.\d+\.\d+$/i)
+          || line.match(/^v?\d+\.\d+$/i)
+          || line.match(/^v?\d+$/i);
+
+        if (versionMatch) {
+          flushCurrent();
+          currentVersion = line.replace(/^v/i, '');
+          currentChanges = [];
+          continue;
+        }
+
+        const bulletMatch = line.match(/^[-*•]\s*(.+)$/);
+        if (currentVersion && bulletMatch) {
+          currentChanges.push(bulletMatch[1].trim());
+          continue;
+        }
+
+        if (currentVersion) {
+          currentChanges.push(line.trim());
+          continue;
+        }
+
+        throw new Error('De changelog moet beginnen met een versienummer, bijvoorbeeld 1.3.0.');
+      }
+
+      flushCurrent();
+
+      const fullChangelog = parsed.filter(entry => entry.version && Array.isArray(entry.changes));
+      const dataPath = path.join(__dirname, '..', 'data', 'changelog.json');
+      fs.writeFileSync(dataPath, JSON.stringify(fullChangelog, null, 2));
+
+      await interaction.reply({
+        content: '✅ Changelog opgeslagen.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    } catch (error) {
+      console.error('Changelog modal parse error:', error.message);
+      return interaction.reply({
+        content: `❌ Ongeldige changelog: ${error.message}`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
   
   if (interaction.customId === 'suggestie_modal') {
   const titel = interaction.fields.getTextInputValue('suggestie_titel');

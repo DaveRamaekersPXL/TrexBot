@@ -1,7 +1,11 @@
 const {
   SlashCommandBuilder,
   PermissionFlagsBits,
-  MessageFlags
+  MessageFlags,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ActionRowBuilder
 } = require('discord.js');
 
 const fs = require('fs');
@@ -25,45 +29,48 @@ function loadChangelog() {
   }
 }
 
+function formatChangelogForEditor(changelog) {
+  if (!Array.isArray(changelog) || changelog.length === 0) {
+    return '1.0.0\n- Eerste wijziging';
+  }
+
+  return changelog
+    .map(entry => {
+      const version = entry?.version || 'onbekend';
+      const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+      return [
+        `${version}`,
+        ...changes.map(change => `- ${change}`)
+      ].join('\n');
+    })
+    .join('\n\n');
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('changelog-aanpassen')
-    .setDescription('Schrijf de volledige changelog handmatig over.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .addStringOption(option =>
-      option
-        .setName('json')
-        .setDescription('Gebruik JSON, voorbeeld: [{"version":"1.3.0","changes":["...","..."]}]')
-        .setRequired(true)
-    ),
+    .setDescription('Open de volledige changelog in een editor om deze eenvoudig aan te passen.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
-    const rawJson = interaction.options.getString('json');
+    const changelog = loadChangelog();
+    const editorText = formatChangelogForEditor(changelog);
 
-    try {
-      const parsed = JSON.parse(rawJson);
+    const modal = new ModalBuilder()
+      .setCustomId('changelog_edit_modal')
+      .setTitle('Changelog aanpassen');
 
-      if (!Array.isArray(parsed)) {
-        throw new Error('De JSON moet een array zijn.');
-      }
+    const changelogInput = new TextInputBuilder()
+      .setCustomId('changelog_text')
+      .setLabel('Changelog (versie + bullet punten)')
+      .setStyle(TextInputStyle.Paragraph)
+      .setValue(editorText)
+      .setRequired(true)
+      .setPlaceholder('1.3.0\n- item 1\n- item 2\n\n1.4.0\n- item 3');
 
-      for (const item of parsed) {
-        if (!item || typeof item.version !== 'string' || !Array.isArray(item.changes)) {
-          throw new Error('Elke changelog-item moet een version-string en een changes-array hebben.');
-        }
-      }
+    const actionRow = new ActionRowBuilder().addComponents(changelogInput);
+    modal.addComponents(actionRow);
 
-      fs.writeFileSync(changelogPath, JSON.stringify(parsed, null, 2));
-
-      await interaction.reply({
-        content: '✅ Changelog handmatig aangepast.',
-        flags: MessageFlags.Ephemeral
-      });
-    } catch (error) {
-      await interaction.reply({
-        content: `❌ Ongeldige JSON: ${error.message}`,
-        flags: MessageFlags.Ephemeral
-      });
-    }
+    await interaction.showModal(modal);
   }
 };
