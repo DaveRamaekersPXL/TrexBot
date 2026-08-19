@@ -2,7 +2,6 @@ const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } =
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const { XMLParser } = require('fast-xml-parser');
 
 const dataPath = path.join(__dirname, '../../data/alerts.json');
 
@@ -36,23 +35,29 @@ module.exports = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
-      const saved = loadData();
-      const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${process.env.YOUTUBE_CHANNEL_ID}`;
+      if (!process.env.YOUTUBE_API_KEY || !process.env.YOUTUBE_CHANNEL_ID) {
+        return interaction.editReply({
+          content: '❌ YOUTUBE_API_KEY of YOUTUBE_CHANNEL_ID ontbreekt in de .env.'
+        });
+      }
 
-      const response = await axios.get(feedUrl, {
-        timeout: 15000,
-        headers: {
-          'User-Agent': 'TrexBot/1.0'
-        }
+      const saved = loadData();
+      const response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+        params: {
+          key: process.env.YOUTUBE_API_KEY,
+          channelId: process.env.YOUTUBE_CHANNEL_ID,
+          part: 'snippet',
+          order: 'date',
+          type: 'video',
+          maxResults: 1
+        },
+        timeout: 15000
       });
 
-      const parser = new XMLParser();
-      const data = parser.parse(response.data);
-      const entry = data?.feed?.entry;
-      const latest = Array.isArray(entry) ? entry[0] : entry;
+      const latest = response.data?.items?.[0];
 
-      const liveVideoId = latest?.['yt:videoId'] || 'onbekend';
-      const liveTitle = latest?.title || 'onbekend';
+      const liveVideoId = latest?.id?.videoId || 'onbekend';
+      const liveTitle = latest?.snippet?.title || 'onbekend';
       const savedVideoId = saved.lastYouTubeVideoId || 'geen';
       const savedTitle = saved.lastYouTubeTitle || 'geen';
       const isSynced = liveVideoId === savedVideoId;
@@ -63,8 +68,8 @@ module.exports = {
         .addFields(
           { name: 'Opgeslagen video ID', value: String(savedVideoId), inline: false },
           { name: 'Opgeslagen titel', value: String(savedTitle), inline: false },
-          { name: 'Live feed video ID', value: String(liveVideoId), inline: false },
-          { name: 'Live feed titel', value: String(liveTitle), inline: false },
+          { name: 'Live API video ID', value: String(liveVideoId), inline: false },
+          { name: 'Live API titel', value: String(liveTitle), inline: false },
           {
             name: 'Status',
             value: isSynced
@@ -80,7 +85,7 @@ module.exports = {
     } catch (error) {
       console.error('YouTube status command error:', error.message);
       await interaction.editReply({
-        content: '❌ Ik kon de YouTube-feed niet ophalen. Controleer de bot-log of het kanaal-ID en de netwerkconnectie.'
+        content: '❌ Ik kon de YouTube Data API niet ophalen. Controleer de bot-log, API-key en kanaal-ID.'
       });
     }
   }

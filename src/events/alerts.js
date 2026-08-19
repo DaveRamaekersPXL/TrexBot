@@ -1,5 +1,4 @@
 const axios = require('axios');
-const { XMLParser } = require('fast-xml-parser');
 const { EmbedBuilder } = require('discord.js');
 const { incrementStat } = require('../utils/stats');
 
@@ -49,30 +48,47 @@ async function getTwitchToken() {
   twitchAccessToken = res.data.access_token;
 }
 
-async function fetchYouTubeFeed(feedUrl, attempt = 1) {
+async function fetchLatestYouTubeVideo(attempt = 1) {
+  const apiUrl = 'https://www.googleapis.com/youtube/v3/search';
+
   try {
-    return await axios.get(feedUrl, {
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'User-Agent': 'TrexBot/1.0'
+    const response = await axios.get(apiUrl, {
+      params: {
+        key: process.env.YOUTUBE_API_KEY,
+        channelId: process.env.YOUTUBE_CHANNEL_ID,
+        part: 'snippet',
+        order: 'date',
+        type: 'video',
+        maxResults: 1
       },
       timeout: 15000
     });
+
+    const item = response.data?.items?.[0];
+    if (!item?.id?.videoId) {
+      return null;
+    }
+
+    return {
+      videoId: item.id.videoId,
+      title: item.snippet?.title || '',
+      description: item.snippet?.description || '',
+      isLive: item.snippet?.liveBroadcastContent && item.snippet.liveBroadcastContent !== 'none'
+    };
   } catch (error) {
     const status = error.response?.status;
     const shouldRetry = attempt < 2 && status >= 500 && status < 600;
 
-    console.error('YouTube feed request mislukt:', {
-      feedUrl,
+    console.error('YouTube API request mislukt:', {
+      apiUrl,
       attempt,
       status,
       message: error.message
     });
 
     if (shouldRetry) {
-      console.log('YouTube feed retry voor tijdelijke serverfout...');
-      return fetchYouTubeFeed(feedUrl, attempt + 1);
+      console.log('YouTube API retry voor tijdelijke serverfout...');
+      return fetchLatestYouTubeVideo(attempt + 1);
     }
 
     throw error;
@@ -168,42 +184,41 @@ async function checkYouTubeUpload(client) {
   try {
     alertData = loadData();
 
-    const feedUrl =
-      `https://www.youtube.com/feeds/videos.xml?channel_id=${process.env.YOUTUBE_CHANNEL_ID}`;
+    if (!process.env.YOUTUBE_API_KEY || !process.env.YOUTUBE_CHANNEL_ID) {
+      console.error('YouTube upload check overgeslagen: YOUTUBE_API_KEY of YOUTUBE_CHANNEL_ID ontbreekt.');
+      return;
+    }
 
     console.log('YouTube upload check gestart:', {
-      feedUrl,
+      channelId: process.env.YOUTUBE_CHANNEL_ID,
       lastSavedVideoId: alertData.lastYouTubeVideoId || '(geen)'
     });
 
-    const res = await fetchYouTubeFeed(feedUrl);
-    console.log('YouTube Channel ID:', process.env.YOUTUBE_CHANNEL_ID);
+    const latest = await fetchLatestYouTubeVideo();
+    if (!latest) {
+      console.log('Geen YouTube video gevonden via de API.');
+      return;
+    }
 
-    const parser = new XMLParser();
-    const data = parser.parse(res.data);
-    const entry = data.feed.entry;
-
-    if (!entry) return;
-
-    const latest = Array.isArray(entry) ? entry[0] : entry; 
-    const videoId = latest['yt:videoId'];
+    const videoId = latest.videoId;
     console.log('Laatste YouTube video ID:', videoId);
     const title = latest.title;
     const normalizedTitle = String(title || '').trim();
     console.log('Laatste YouTube titel:', normalizedTitle);
-   
-    if (title.includes('LIVE')) {
+
+    if (latest.isLive || normalizedTitle.toUpperCase().includes('LIVE')) {
       console.log('Live/VOD overgeslagen:', title);
       alertData.lastYouTubeVideoId = videoId;
       saveData(alertData);
-        return;
-
+      return;
     }
-    const description = latest["media:group"]?.["media:description"] || "";
+
+    const description = latest.description || '';
     if (description.toLowerCase().includes('#nederlands')) {
       console.log('Short overgeslagen zonder state-update:', title, `(${videoId})`);
-        return;
+      return;
     }
+
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
     if (normalizedTitle && normalizedTitle === String(alertData.lastYouTubeTitle || '').trim()) {
@@ -253,7 +268,7 @@ async function checkYouTubeUpload(client) {
     console.error('YouTube upload error:', {
       status: error.response?.status,
       message: error.message,
-      feedUrl: `https://www.youtube.com/feeds/videos.xml?channel_id=${process.env.YOUTUBE_CHANNEL_ID}`
+      apiUrl: 'https://www.googleapis.com/youtube/v3/search'
     });
   } finally {
     isCheckingYouTubeUpload = false;
