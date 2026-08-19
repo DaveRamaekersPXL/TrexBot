@@ -25,6 +25,14 @@ function loadData() {
   }
 }
 
+function getYouTubeUploadsPlaylistId(channelId) {
+  if (!channelId || !channelId.startsWith('UC') || channelId.length < 3) {
+    return null;
+  }
+
+  return `UU${channelId.slice(2)}`;
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('youtube-status')
@@ -41,14 +49,19 @@ module.exports = {
         });
       }
 
+      const uploadsPlaylistId = getYouTubeUploadsPlaylistId(process.env.YOUTUBE_CHANNEL_ID);
+      if (!uploadsPlaylistId) {
+        return interaction.editReply({
+          content: '❌ Ongeldige YOUTUBE_CHANNEL_ID. Verwacht een kanaal-ID die met UC begint.'
+        });
+      }
+
       const saved = loadData();
-      const response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+      const response = await axios.get('https://www.googleapis.com/youtube/v3/playlistItems', {
         params: {
           key: process.env.YOUTUBE_API_KEY,
-          channelId: process.env.YOUTUBE_CHANNEL_ID,
-          part: 'snippet',
-          order: 'date',
-          type: 'video',
+          playlistId: uploadsPlaylistId,
+          part: 'snippet,contentDetails',
           maxResults: 1
         },
         timeout: 15000
@@ -56,7 +69,7 @@ module.exports = {
 
       const latest = response.data?.items?.[0];
 
-      const liveVideoId = latest?.id?.videoId || 'onbekend';
+      const liveVideoId = latest?.contentDetails?.videoId || 'onbekend';
       const liveTitle = latest?.snippet?.title || 'onbekend';
       const savedVideoId = saved.lastYouTubeVideoId || 'geen';
       const savedTitle = saved.lastYouTubeTitle || 'geen';

@@ -48,39 +48,63 @@ async function getTwitchToken() {
   twitchAccessToken = res.data.access_token;
 }
 
+function getYouTubeUploadsPlaylistId(channelId) {
+  if (!channelId || !channelId.startsWith('UC') || channelId.length < 3) {
+    return null;
+  }
+
+  return `UU${channelId.slice(2)}`;
+}
+
 async function fetchLatestYouTubeVideo(attempt = 1) {
-  const apiUrl = 'https://www.googleapis.com/youtube/v3/search';
+  const uploadsPlaylistId = getYouTubeUploadsPlaylistId(process.env.YOUTUBE_CHANNEL_ID);
+  if (!uploadsPlaylistId) {
+    throw new Error('Ongeldige YOUTUBE_CHANNEL_ID voor uploads playlist. Verwacht een kanaal-ID die met UC begint.');
+  }
+
+  let endpointName = 'playlistItems.list';
 
   try {
-    const response = await axios.get(apiUrl, {
+    const playlistResponse = await axios.get('https://www.googleapis.com/youtube/v3/playlistItems', {
       params: {
         key: process.env.YOUTUBE_API_KEY,
-        channelId: process.env.YOUTUBE_CHANNEL_ID,
-        part: 'snippet',
-        order: 'date',
-        type: 'video',
+        playlistId: uploadsPlaylistId,
+        part: 'snippet,contentDetails',
         maxResults: 1
       },
       timeout: 15000
     });
 
-    const item = response.data?.items?.[0];
-    if (!item?.id?.videoId) {
+    const item = playlistResponse.data?.items?.[0];
+    const videoId = item?.contentDetails?.videoId;
+    if (!videoId) {
       return null;
     }
 
+    endpointName = 'videos.list';
+    const videoResponse = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+      params: {
+        key: process.env.YOUTUBE_API_KEY,
+        id: videoId,
+        part: 'snippet'
+      },
+      timeout: 15000
+    });
+
+    const videoSnippet = videoResponse.data?.items?.[0]?.snippet;
+
     return {
-      videoId: item.id.videoId,
+      videoId,
       title: item.snippet?.title || '',
       description: item.snippet?.description || '',
-      isLive: item.snippet?.liveBroadcastContent && item.snippet.liveBroadcastContent !== 'none'
+      isLive: videoSnippet?.liveBroadcastContent && videoSnippet.liveBroadcastContent !== 'none'
     };
   } catch (error) {
     const status = error.response?.status;
     const shouldRetry = attempt < 2 && status >= 500 && status < 600;
 
     console.error('YouTube API request mislukt:', {
-      apiUrl,
+      endpoint: endpointName,
       attempt,
       status,
       message: error.message
@@ -268,7 +292,10 @@ async function checkYouTubeUpload(client) {
     console.error('YouTube upload error:', {
       status: error.response?.status,
       message: error.message,
-      apiUrl: 'https://www.googleapis.com/youtube/v3/search'
+      apiEndpoints: [
+        'https://www.googleapis.com/youtube/v3/playlistItems',
+        'https://www.googleapis.com/youtube/v3/videos'
+      ]
     });
   } finally {
     isCheckingYouTubeUpload = false;
